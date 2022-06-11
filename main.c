@@ -3,10 +3,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <syslog.h>
-#include <str/str2num.h>
+#include <mdb.h>
 #include <types/username.h>
 #include <types/uuid_ss.h>
-#include <mdb.h>
+#include <io/slog.h>
 
 #define COPYRIGHT_LINE \
     "Bug reports, feature requests to gemini|https://harkadev.com/oss" "\n" \
@@ -24,8 +24,8 @@ const char help[] =
 int main (int _argc, char *_argv[]) {
 
     mdb     *mdb    = NULL;
-    int      res    = 0;
-    int      retval = 1;
+    int      e      = 0;
+    int      r      = 1;
     time_t   ctime  = time(NULL);
     long     ttl_l  = 0;
     username user   = {0};
@@ -52,64 +52,43 @@ int main (int _argc, char *_argv[]) {
     if (!cmd/*err*/) goto cleanup_missing_command;
     
     /* Open database. */
-    res = mdb_create(&mdb, NULL) && miniauth_open(mdb, app);
-    if (!res/*err*/) goto cleanup;
+    e = mdb_create(&mdb, NULL) && miniauth_open(mdb, app);
+    if (!e/*err*/) goto cleanup;
     
     /* Perform operation. */
-    switch(str2num(cmd, strcasecmp,
-                   "i", 1, "issue", 1,
-                   "c", 2, "check", 2,
-                   NULL)) {
-    case 1:
+    if (!strcmp(cmd, "i") || !strcmp(cmd, "issue")) {
         if (!arg1/*err*/) goto cleanup_missing_username;
-        res = username_parse(&user, arg1);
-        if (!res/*err*/) goto cleanup_invalid_username;
-        res = miniauth_issue_token(mdb, ctime, &user, token);
-        if (!res/*err*/) goto cleanup;
+        e = username_parse(&user, arg1, NULL);
+        if (!e/*err*/) goto cleanup_invalid_username;
+        e = miniauth_issue_token(mdb, ctime, &user, token);
+        if (!e/*err*/) goto cleanup;
         printf("%s\n", uuid_str(token, UUID_SS_STORE));
-        break;
-    case 2:
+    } else if (!strcmp(cmd, "c") || !strcmp(cmd, "check")) {
         if (!arg1/*err*/) goto cleanup_missing_token;
-        res = uuid_parse_nn(arg1, token);
-        if (!res/*err*/) goto cleanup_invalid_uuid;
+        e = uuid_parse_secure(token, arg1, false, NULL);
+        if (!e/*err*/) goto cleanup;
         ttl_l = (arg2)?strtol(arg2, NULL, 10):3600;
-        res = miniauth_check_token(mdb, ctime, ttl_l, token, &user, &logged);
-        if (!res/*err*/) goto cleanup;
+        e = miniauth_check_token(mdb, ctime, ttl_l, token, &user, &logged);
+        if (!e/*err*/) goto cleanup;
         if (logged) {
             printf("%s\n", user.s);
         } else {
-            syslog(LOG_ERR, "Not logged in");
+            error("Not logged in");
         }
-        break;
-    default:
+    } else {
         goto cleanup_invalid_command;
     }
-
+    
     /* Cleanup */
-    retval = 0;
+    r = 0;
     goto cleanup;
- cleanup_missing_app_name:
-    syslog(LOG_ERR, "Missing application name.");
-    goto cleanup;
- cleanup_missing_command:
-    syslog(LOG_ERR, "Missing command.");
-    goto cleanup;
- cleanup_missing_username:
-    syslog(LOG_ERR, "Missing username.");
-    goto cleanup;
- cleanup_invalid_username:
-    syslog(LOG_ERR, "Invalid username.");
-    goto cleanup;
- cleanup_missing_token:
-    syslog(LOG_ERR, "Missing token.");
-    goto cleanup;
- cleanup_invalid_uuid:
-    syslog(LOG_ERR, "Invalid Token: Must be a valid UUID.");
-    goto cleanup;
- cleanup_invalid_command:
-    syslog(LOG_ERR, "Invalid command.");
-    goto cleanup;
+ cleanup_missing_app_name: error("Missing application name."); goto cleanup;
+ cleanup_missing_command:  error("Missing command.");          goto cleanup;
+ cleanup_missing_username: error("Missing username.");         goto cleanup;
+ cleanup_invalid_username: error("Invalid username.");         goto cleanup;
+ cleanup_missing_token:    error("Missing token.");            goto cleanup;
+ cleanup_invalid_command:  error("Invalid command.");          goto cleanup;
  cleanup:
     if (mdb) mdb_destroy(mdb);
-    return retval;
+    return r;
 }
