@@ -2,6 +2,7 @@
 #include <mdb.h>
 #include <syslog.h>
 #include <types/username.h>
+#include <syslog.h>
 
 #ifndef MINIAUTH_TYPE
 #  define MINIAUTH_TYPE "miniauth"

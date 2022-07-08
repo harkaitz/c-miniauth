@@ -6,7 +6,7 @@
 #include <mdb.h>
 #include <types/username.h>
 #include <types/uuid_ss.h>
-#include <io/slog.h>
+#include <syslog.h>
 
 #define COPYRIGHT_LINE \
     "Bug reports, feature requests to gemini|https://harkadev.com/oss" "\n" \
@@ -73,7 +73,7 @@ int main (int _argc, char *_argv[]) {
         if (logged) {
             printf("%s\n", user.s);
         } else {
-            error("Not logged in");
+            syslog(LOG_ERR, "Not logged in");
         }
     } else {
         goto cleanup_invalid_command;
@@ -82,12 +82,12 @@ int main (int _argc, char *_argv[]) {
     /* Cleanup */
     r = 0;
     goto cleanup;
- cleanup_missing_app_name: error("Missing application name."); goto cleanup;
- cleanup_missing_command:  error("Missing command.");          goto cleanup;
- cleanup_missing_username: error("Missing username.");         goto cleanup;
- cleanup_invalid_username: error("Invalid username.");         goto cleanup;
- cleanup_missing_token:    error("Missing token.");            goto cleanup;
- cleanup_invalid_command:  error("Invalid command.");          goto cleanup;
+ cleanup_missing_app_name: syslog(LOG_ERR, "Missing application name."); goto cleanup;
+ cleanup_missing_command:  syslog(LOG_ERR, "Missing command.");          goto cleanup;
+ cleanup_missing_username: syslog(LOG_ERR, "Missing username.");         goto cleanup;
+ cleanup_invalid_username: syslog(LOG_ERR, "Invalid username.");         goto cleanup;
+ cleanup_missing_token:    syslog(LOG_ERR, "Missing token.");            goto cleanup;
+ cleanup_invalid_command:  syslog(LOG_ERR, "Invalid command.");          goto cleanup;
  cleanup:
     if (mdb) mdb_destroy(mdb);
     return r;
