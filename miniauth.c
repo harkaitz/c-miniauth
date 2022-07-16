@@ -4,29 +4,19 @@
 #include <types/username.h>
 #include <syslog.h>
 
-#ifndef MINIAUTH_TYPE
-#  define MINIAUTH_TYPE "miniauth"
-#endif
+
 
 typedef struct miniauth {
     time_t   itime;
     username user;
 } miniauth;
 
-bool miniauth_open(mdb *_m, const char _app[]) {
-    return mdb_open_f(_m, MINIAUTH_TYPE, "rw", 0666, "%s", _app);
-}
-
-void miniauth_close(mdb *_m) {
-    return mdb_close(_m, MINIAUTH_TYPE);
-}
-
 bool miniauth_issue_token(mdb *_m, time_t _c, const username *_i_u, uuid_t _o_t) {
     miniauth a;
     uuid_generate_random(_o_t);
     a.itime = _c;
     strcpy(a.user.s, _i_u->s);
-    return mdb_insert(_m, MINIAUTH_TYPE, mdb_k_uuid(_o_t), &a, sizeof(a));
+    return mdb_insert(_m, "miniauth", mdb_k_uuid(_o_t), &a, sizeof(a));
 }
 
 bool miniauth_check_token(mdb *_m, time_t _c, time_t _ttl, const uuid_t _i_t, username *_o_u, bool *_logged) {
@@ -41,7 +31,7 @@ bool miniauth_check_token(mdb *_m, time_t _c, time_t _ttl, const uuid_t _i_t, us
     if (_o_u)    _o_u->s[0] = '\0';
 
     /* Search in database. */
-    r = mdb_search_cp(_m, MINIAUTH_TYPE, k, &a, sizeof(a), &a_found);
+    r = mdb_search_cp(_m, "miniauth", k, &a, sizeof(a), &a_found);
     if (!r/*err*/) return false;
 
     /* Not found. */
@@ -67,7 +57,7 @@ bool miniauth_check_token(mdb *_m, time_t _c, time_t _ttl, const uuid_t _i_t, us
     /* Update. */
     if (_ttl > 0) {
         a.itime = _c + _ttl;
-        r = mdb_replace(_m, MINIAUTH_TYPE, k, &a, sizeof(a));
+        r = mdb_replace(_m, "miniauth", k, &a, sizeof(a));
         if (!r/*err*/) return false;
     }
     

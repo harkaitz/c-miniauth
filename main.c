@@ -52,7 +52,11 @@ int main (int _argc, char *_argv[]) {
     if (!cmd/*err*/) goto cleanup_missing_command;
     
     /* Open database. */
-    e = mdb_create(&mdb, NULL) && miniauth_open(mdb, app);
+    e = mdb_create(&mdb, NULL);
+    if (!e/*err*/) goto cleanup;
+
+    /* Map database. */
+    e = mdb_map(mdb, "miniauth", "%s::miniauth", app);
     if (!e/*err*/) goto cleanup;
     
     /* Perform operation. */
